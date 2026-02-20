@@ -581,6 +581,26 @@ class UIController {
     }
 
     // === TRACKS PANEL ===
+    getInstrumentIcon(programNumber) {
+        if (programNumber >= 0 && programNumber <= 7) return '🎹'; // Piano
+        if (programNumber >= 8 && programNumber <= 15) return '🔔'; // Chromatic Percussion
+        if (programNumber >= 16 && programNumber <= 23) return '🎺'; // Organ
+        if (programNumber >= 24 && programNumber <= 31) return '🎸'; // Guitar
+        if (programNumber >= 32 && programNumber <= 39) return '🎻'; // Bass
+        if (programNumber >= 40 && programNumber <= 47) return '🎻'; // Strings
+        if (programNumber >= 48 && programNumber <= 55) return '👥'; // Ensemble
+        if (programNumber >= 56 && programNumber <= 63) return '🎺'; // Brass
+        if (programNumber >= 64 && programNumber <= 71) return '🎷'; // Reed
+        if (programNumber >= 72 && programNumber <= 79) return '🎶'; // Pipe
+        if (programNumber >= 80 && programNumber <= 87) return '🎛️'; // Synth Lead
+        if (programNumber >= 88 && programNumber <= 95) return '🎹'; // Synth Pad
+        if (programNumber >= 96 && programNumber <= 103) return '✨'; // Synth Effects
+        if (programNumber >= 104 && programNumber <= 111) return '🌏'; // Ethnic
+        if (programNumber >= 112 && programNumber <= 119) return '🥁'; // Percussive
+        if (programNumber >= 120 && programNumber <= 127) return '🔊'; // Sound Effects
+        return '🎵'; // Default
+    }
+
     displayTracks(midiData) {
         const tracksPanel = document.getElementById('tracksPanel');
         const tracksList = document.getElementById('tracksList');
@@ -600,7 +620,19 @@ class UIController {
                     foundProgram = true;
                     const name = GM_PROGRAM_NAMES[programNumber];
                     if (name) {
-                        instrumentName = name.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                        // УЛУЧШЕННОЕ форматирование названий
+                        instrumentName = name
+                            .split('-')
+                            .map(word => {
+                                // Особые случаи для аббревиатур
+                                if (word === 'fx') return 'FX';
+                                if (word === 'am') return 'AM';
+                                if (word === 'fm') return 'FM';
+
+                                // Обычная капитализация
+                                return word.charAt(0).toUpperCase() + word.slice(1);
+                            })
+                            .join(' ');
                     }
                 }
             });
@@ -611,10 +643,17 @@ class UIController {
 
             const trackItem = document.createElement('div');
             trackItem.className = 'track-item';
+
+            // Определяем тип синтеза
+            const instrName = GM_PROGRAM_NAMES[programNumber] || 'acoustic-grand-piano';
+            const samplerInfo = SAMPLER_INSTRUMENTS[instrName];
+            const isSampler = samplerInfo && samplerInfo.type === 'sampler';
+            const badge = isSampler ? '<span class="badge-sampler">🎼 Real</span>' : '<span class="badge-synth">🎛️ Synth</span>';
+
             trackItem.innerHTML = `
                 <div class="track-info">
-                    <div class="track-name">Трек ${index + 1}</div>
-                    <div class="track-instrument">🎹 ${instrumentName}</div>
+                    <div class="track-name">Трек ${index + 1} ${badge}</div>
+                    <div class="track-instrument">${this.getInstrumentIcon(programNumber)} ${instrumentName}</div>
                 </div>
                 <div class="track-controls">
                     <button class="track-mute-btn" data-track="${index}">🔇 Mute</button>
