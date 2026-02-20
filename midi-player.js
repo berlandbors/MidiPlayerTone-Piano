@@ -14,6 +14,7 @@ class MIDIPlayer {
         this.visualizer = visualizer;
         this.updateInterval = null;
         this.synth = null;
+        this.instrumentManager = new InstrumentManager();
         this.audioEffects = new AudioEffects();
         this.isRecording = false;
         this.recorder = null;
@@ -320,6 +321,47 @@ class MIDIPlayer {
 
         tempoChanges.sort((a, b) => a.tick - b.tick);
 
+        // Пред-скан: собираем начальные программы для каждого канала
+        const channelInitialPrograms = new Map();
+        const programChanges = [];
+
+        this.midiData.tracks.forEach(track => {
+            track.events.forEach(event => {
+                if (event.type === 'programChange') {
+                    const eventTime = this.ticksToSeconds(event.time, ticksPerBeat, tempoChanges);
+                    const adjustedTime = eventTime / (this.tempo / 100);
+                    programChanges.push({ time: adjustedTime, channel: event.channel, programNumber: event.programNumber });
+                    if (!channelInitialPrograms.has(event.channel)) {
+                        channelInitialPrograms.set(event.channel, event.programNumber);
+                    }
+                } else if ((event.type === 'noteOn' || event.type === 'noteOff') && event.channel !== undefined) {
+                    if (!channelInitialPrograms.has(event.channel)) {
+                        channelInitialPrograms.set(event.channel, 0);
+                    }
+                }
+            });
+        });
+
+        // Инициализируем InstrumentManager каналами
+        if (channelInitialPrograms.size === 0) {
+            channelInitialPrograms.set(0, 0);
+        }
+        channelInitialPrograms.forEach((programNumber, channel) => {
+            this.instrumentManager.initChannel(channel, programNumber);
+        });
+
+        // Планируем смену инструментов (Program Change)
+        programChanges.forEach(pc => {
+            if (pc.time < startTime) return;
+            const delay = Math.max(0, (pc.time - startTime) * 1000);
+            const timeoutId = setTimeout(() => {
+                if (this.isPlaying) {
+                    this.instrumentManager.changeProgram(pc.channel, pc.programNumber);
+                }
+            }, delay);
+            this.scheduledEvents.push(timeoutId);
+        });
+
         const noteMap = new Map();
         let notesToPlay = [];
 
@@ -335,7 +377,7 @@ class MIDIPlayer {
                         note: event.note,
                         velocity: event.velocity,
                         startTime: adjustedTime,
-                        channel: event.channel
+                        channel: event.channel !== undefined ? event.channel : 0
                     });
                 } else if (event.type === 'noteOff') {
                     const noteOn = noteMap.get(event.note + '_' + event.channel + '_' + trackIndex);
@@ -345,7 +387,8 @@ class MIDIPlayer {
                             note: noteOn.note,
                             velocity: noteOn.velocity,
                             startTime: noteOn.startTime,
-                            duration: duration
+                            duration: duration,
+                            channel: noteOn.channel
                         });
                         noteMap.delete(event.note + '_' + event.channel + '_' + trackIndex);
                     }
@@ -360,7 +403,18 @@ class MIDIPlayer {
 
             const timeoutId = setTimeout(() => {
                 if (this.isPlaying) {
-                    this.playNote(noteData.note, noteData.velocity, noteData.duration);
+                    this.instrumentManager.playNote(
+                        noteData.channel,
+                        noteData.note,
+                        noteData.velocity,
+                        noteData.duration
+                    );
+                    this.activeNotes.add(noteData.note);
+                    this.visualizer.addNote(noteData.note, noteData.velocity);
+                    setTimeout(() => {
+                        this.activeNotes.delete(noteData.note);
+                        this.visualizer.removeNote(noteData.note);
+                    }, noteData.duration * 1000);
                 }
             }, delay);
 
@@ -399,6 +453,7 @@ class MIDIPlayer {
         if (this.synth && typeof this.synth.releaseAll === 'function') {
             this.synth.releaseAll();
         }
+        this.instrumentManager.releaseAll();
     }
 
     stop() {
@@ -413,6 +468,7 @@ class MIDIPlayer {
         if (this.synth && typeof this.synth.releaseAll === 'function') {
             this.synth.releaseAll();
         }
+        this.instrumentManager.releaseAll();
     }
 
     clearScheduledEvents() {
@@ -448,6 +504,7 @@ class MIDIPlayer {
         if (this.synth) {
             this.synth.volume.value = Tone.gainToDb(volume / 100);
         }
+        this.instrumentManager.setMasterVolume(volume);
     }
 
     setTempo(tempo) {
