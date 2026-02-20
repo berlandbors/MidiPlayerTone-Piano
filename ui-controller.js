@@ -236,6 +236,7 @@ class UIController {
                 this.showPlayerControls();
                 this.totalTimeEl.textContent = this.formatTime(this.player.duration);
                 this.status.textContent = '✅ Файл загружен. Готов к воспроизведению.';
+                this.displayTracks(midiData);
                 
             } catch (error) {
                 this.status.textContent = '❌ Ошибка: ' + error.message;
@@ -577,6 +578,103 @@ class UIController {
             
             this.recordStatus.textContent = '✅ Запись завершена. Нажмите "Скачать аудио".';
         }
+    }
+
+    // === TRACKS PANEL ===
+    displayTracks(midiData) {
+        const tracksPanel = document.getElementById('tracksPanel');
+        const tracksList = document.getElementById('tracksList');
+
+        if (!tracksPanel || !tracksList) return;
+
+        tracksList.innerHTML = '';
+
+        midiData.tracks.forEach((track, index) => {
+            let instrumentName = 'Acoustic Grand Piano';
+            let programNumber = 0;
+            let foundProgram = false;
+
+            track.events.forEach(event => {
+                if (event.type === 'programChange' && !foundProgram) {
+                    programNumber = event.programNumber;
+                    foundProgram = true;
+                    const name = GM_PROGRAM_NAMES[programNumber];
+                    if (name) {
+                        instrumentName = name.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                    }
+                }
+            });
+
+            // Пропускаем треки без нот
+            const hasNotes = track.events.some(e => e.type === 'noteOn');
+            if (!hasNotes) return;
+
+            const trackItem = document.createElement('div');
+            trackItem.className = 'track-item';
+            trackItem.innerHTML = `
+                <div class="track-info">
+                    <div class="track-name">Трек ${index + 1}</div>
+                    <div class="track-instrument">🎹 ${instrumentName}</div>
+                </div>
+                <div class="track-controls">
+                    <button class="track-mute-btn" data-track="${index}">🔇 Mute</button>
+                    <button class="track-solo-btn" data-track="${index}">⭐ Solo</button>
+                    <input type="range" class="track-volume" min="0" max="127" value="100" data-track="${index}" title="Громкость">
+                    <input type="range" class="track-pan" min="-100" max="100" value="0" data-track="${index}" title="Панорама">
+                </div>
+            `;
+            tracksList.appendChild(trackItem);
+        });
+
+        tracksPanel.style.display = tracksList.children.length > 0 ? 'block' : 'none';
+        this.attachTrackControls();
+    }
+
+    attachTrackControls() {
+        document.querySelectorAll('.track-mute-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const track = parseInt(e.target.dataset.track);
+                const isMuted = e.target.classList.toggle('active');
+                this.player.instrumentManager.setChannelMute(track, isMuted);
+                e.target.textContent = isMuted ? '🔊 Unmute' : '🔇 Mute';
+            });
+        });
+
+        document.querySelectorAll('.track-solo-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const track = parseInt(e.target.dataset.track);
+                const isSolo = e.target.classList.toggle('active');
+
+                document.querySelectorAll('.track-solo-btn').forEach(b => {
+                    if (b !== e.target) b.classList.remove('active');
+                });
+
+                if (isSolo) {
+                    this.player.instrumentManager.setSolo(track);
+                } else {
+                    this.player.instrumentManager.clearSolo();
+                }
+            });
+        });
+
+        document.querySelectorAll('.track-volume').forEach(slider => {
+            slider.addEventListener('input', (e) => {
+                const track = parseInt(e.target.dataset.track);
+                const volume = parseInt(e.target.value);
+                this.player.instrumentManager.setChannelVolume(track, volume);
+            });
+        });
+
+        document.querySelectorAll('.track-pan').forEach(slider => {
+            slider.addEventListener('input', (e) => {
+                const track = parseInt(e.target.dataset.track);
+                const pan = parseInt(e.target.value) / 100;
+                // Pan is informational for now; stored in instrumentManager
+                if (this.player.instrumentManager.channelPans) {
+                    this.player.instrumentManager.channelPans.set(track, pan);
+                }
+            });
+        });
     }
 
     // === UTILITIES ===

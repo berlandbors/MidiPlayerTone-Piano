@@ -40,6 +40,14 @@
                 <div class="viz-debug" id="vizDebug">Нот: 0</div>
             </div>
 
+            <!-- Панель управления треками -->
+            <div class="tracks-panel" id="tracksPanel" style="display: none;">
+                <h3>🎼 Треки и инструменты</h3>
+                <div class="tracks-list" id="tracksList">
+                    <!-- Треки добавляются динамически -->
+                </div>
+            </div>
+
             <div class="visualization-mode" id="visualizationMode">
                 <button class="viz-btn selected" data-mode="bars">📊 Столбцы</button>
                 <button class="viz-btn" data-mode="wave">🌊 Волна</button>
@@ -268,6 +276,7 @@
     <!-- Подключаем модули в правильном порядке -->
     <script src="sampler-instruments.js"></script>
     <script src="config.js"></script>
+    <script src="instrument-manager.js"></script>
     <script src="midi-parser.js"></script>
     <script src="midi-writer.js"></script>
     <script src="visualizer.js"></script>
