@@ -616,7 +616,7 @@ class UIController {
 
             track.events.forEach(event => {
                 if (event.type === 'programChange' && !foundProgram) {
-                    programNumber = event.programNumber;
+                    programNumber = event.program ?? event.programNumber ?? 0;
                     foundProgram = true;
                     const name = GM_PROGRAM_NAMES[programNumber];
                     if (name) {
@@ -658,8 +658,16 @@ class UIController {
                 <div class="track-controls">
                     <button class="track-mute-btn" data-track="${index}">🔇 Mute</button>
                     <button class="track-solo-btn" data-track="${index}">⭐ Solo</button>
-                    <input type="range" class="track-volume" min="0" max="127" value="100" data-track="${index}" title="Громкость">
-                    <input type="range" class="track-pan" min="-100" max="100" value="0" data-track="${index}" title="Панорама">
+                    <div class="track-slider-group">
+                        <span class="track-slider-label" title="Громкость">🔊</span>
+                        <input type="range" class="track-volume" min="0" max="127" value="100" data-track="${index}" title="Громкость">
+                        <span class="track-slider-value track-volume-value">100</span>
+                    </div>
+                    <div class="track-slider-group">
+                        <span class="track-slider-label" title="Панорама">◀▶</span>
+                        <input type="range" class="track-pan" min="-100" max="100" value="0" data-track="${index}" title="Панорама">
+                        <span class="track-slider-value track-pan-value">C</span>
+                    </div>
                 </div>
             `;
             tracksList.appendChild(trackItem);
@@ -701,6 +709,8 @@ class UIController {
                 const track = parseInt(e.target.dataset.track);
                 const volume = parseInt(e.target.value);
                 this.player.instrumentManager.setChannelVolume(track, volume);
+                const label = e.target.parentElement.querySelector('.track-volume-value');
+                if (label) label.textContent = volume;
             });
         });
 
@@ -711,6 +721,13 @@ class UIController {
                 // Pan is informational for now; stored in instrumentManager
                 if (this.player.instrumentManager.channelPans) {
                     this.player.instrumentManager.channelPans.set(track, pan);
+                }
+                const label = e.target.parentElement.querySelector('.track-pan-value');
+                if (label) {
+                    const panVal = parseInt(e.target.value);
+                    const PAN_LEFT_THRESHOLD = -10;
+                    const PAN_RIGHT_THRESHOLD = 10;
+                    label.textContent = panVal < PAN_LEFT_THRESHOLD ? 'L' : panVal > PAN_RIGHT_THRESHOLD ? 'R' : 'C';
                 }
             });
         });

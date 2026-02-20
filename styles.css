@@ -683,6 +683,7 @@ button.secondary:hover:not(:disabled) {
     align-items: center;
     gap: 8px;
     flex-shrink: 0;
+    flex-wrap: wrap;
 }
 
 .track-mute-btn,
@@ -727,6 +728,27 @@ button.secondary:hover:not(:disabled) {
 
 .track-pan {
     width: 60px;
+}
+
+.track-slider-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.track-slider-label {
+    font-size: 0.85em;
+    opacity: 0.7;
+    flex-shrink: 0;
+}
+
+.track-slider-value {
+    font-size: 0.75em;
+    font-weight: 600;
+    color: #667eea;
+    min-width: 22px;
+    text-align: center;
+    flex-shrink: 0;
 }
 
 @media (max-width: 600px) {
